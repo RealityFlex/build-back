@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Chat</title>
+    <script>
+        let ws;
+        document.addEventListener("DOMContentLoaded", function () {
+            ws = new WebSocket("ws://" + location.host + "/ws");
+
+            ws.onmessage = function (event) {
+                const data = JSON.parse(event.data);
+                const chat = document.getElementById("chat");
+                chat.innerHTML += `<b>${data.username}:</b> ${data.content}<br>`;
+            };
+
+            document.getElementById("sendBtn").onclick = function () {
+                const input = document.getElementById("messageInput");
+                ws.send(JSON.stringify({ content: input.value }));
+                input.value = "";
+            };
+
+            document.getElementById("logoutBtn").onclick = function () {
+                fetch('/logout', { method: 'POST' }).then(() => location.reload());
+            };
+        });
+    </script>
+</head>
+<body>
+    <div>
+        <h1>Chat</h1>
+        <div id="chat" style="border: 1px solid black; height: 300px; overflow-y: scroll;"></div>
+        <input id="messageInput" type="text" placeholder="Type a message..."/>
+        <button id="sendBtn">Send</button>
+        <button id="logoutBtn">Logout</button>
+    </div>
+</body>
+</html>

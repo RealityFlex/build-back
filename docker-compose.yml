@@ -1,0 +1,23 @@
+version: '3.8'
+
+services:
+
+  web:
+    build: .
+    restart: always
+    command: uvicorn main:app --host 0.0.0.0
+    ports:
+      - 8180:8000
+    depends_on:
+      - db
+  db:
+    restart: always
+    image: postgres:11.11
+    volumes:
+      - ./db/:/var/lib/postgresql/data/
+    ports:
+      - 5435:5432
+    environment:
+      - POSTGRES_USER=shureck
+      - POSTGRES_PASSWORD=787898QWEqwe
+      - POSTGRES_DB=biji
