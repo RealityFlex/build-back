@@ -5,6 +5,7 @@ import os
 import uuid
 import data_process
 import json
+from fastapi.middleware.cors import CORSMiddleware
 from datetime import datetime
 
 app = FastAPI()
@@ -46,6 +47,23 @@ from fastapi import FastAPI, HTTPException, Request, Response
 import os
 
 app = FastAPI()
+
+app = FastAPI()
+
+origins = [
+    "http://localhost.tiangolo.com",
+    "https://localhost.tiangolo.com",
+    "http://localhost",
+    "http://localhost:8080",
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Папка для хранения файлов
 BASE_SAVE_FOLDER = "./uploaded_files/"
