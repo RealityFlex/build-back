@@ -1,9 +1,11 @@
-from fastapi import FastAPI, File, UploadFile, Request, HTTPException
+from fastapi import FastAPI, File, UploadFile, Request, HTTPException, Response
 from typing import List
 import shutil
 import os
 import uuid
 import data_process
+import json
+from datetime import datetime
 
 app = FastAPI()
 
@@ -13,7 +15,7 @@ BASE_SAVE_FOLDER = "./uploaded_files/"
 # Ожидаемые расширения файлов
 EXPECTED_EXTENSIONS = {
     "shp": "shp",
-    "shx": "shx",  # shx файл с тем же именем
+    "shx": "shx",
     "dbf": "dbf",
     "prj": "prj",
     "qmd": "qmd",
@@ -28,43 +30,199 @@ def get_session_id(request: Request) -> str:
         session_id = str(uuid.uuid4())
     return session_id
 
+def get_folders_in_directory(session_id: str):
+    session_folder = os.path.join(BASE_SAVE_FOLDER, session_id)
+    
+    # Проверяем, существует ли директория
+    if not os.path.exists(session_folder):
+        raise HTTPException(status_code=404, detail="Session folder not found")
+    
+    # Получаем список всех элементов в папке, фильтруем только папки
+    folders = [f for f in os.listdir(session_folder) if os.path.isdir(os.path.join(session_folder, f))]
+    
+    return folders
+
+from fastapi import FastAPI, HTTPException, Request, Response
+import os
+
+app = FastAPI()
+
+# Папка для хранения файлов
+BASE_SAVE_FOLDER = "./uploaded_files/"
+
+def get_files_in_session_folder(session_id: str, version = None):
+    session_folder = os.path.join(BASE_SAVE_FOLDER, session_id)
+    
+    # Проверяем, существует ли директория
+    if not os.path.exists(session_folder):
+        raise HTTPException(status_code=404, detail="Session folder not found")
+    
+    # Получаем список всех папок и файлов внутри папки session_id
+    result = {}
+    if version != None:
+        folder_path = os.path.join(session_folder, version)
+        result[version] = {}
+        # Проверяем, что это директория
+        if os.path.isdir(folder_path):
+            # Получаем список файлов в папке
+            for folder_name_2 in os.listdir(folder_path):
+                result[version][folder_name_2] = []
+                ppth = os.path.join(folder_path, folder_name_2)
+                if os.path.isdir(ppth):
+                    files = os.listdir(ppth)
+                    result[version][folder_name_2] = files
+    else:
+        for folder_name in os.listdir(session_folder):
+            folder_path = os.path.join(session_folder, folder_name)
+            result[folder_name] = {}
+            # Проверяем, что это директория
+            if os.path.isdir(folder_path):
+                # Получаем список файлов в папке
+                for folder_name_2 in os.listdir(folder_path):
+                    result[folder_name][folder_name_2] = []
+                    ppth = os.path.join(folder_path, folder_name_2)
+                    if os.path.isdir(ppth):
+                        files = os.listdir(ppth)
+                        result[folder_name][folder_name_2] = files
+        
+    return result
+
+@app.get("/files/")
+async def list_files(request: Request, response: Response, version = None):
+    # Извлекаем session_id из cookies
+    session_id = get_session_id(request)
+    
+    if not session_id:
+        response.headers["Set-Cookie"] = f"session_id={session_id}; Path=/; HttpOnly"
+    
+    try:
+        # Получаем список файлов для session_id
+        files = get_files_in_session_folder(session_id, version)
+        return {"versions": files}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+# Путь к файлу метаданных
+def get_metadata_path(session_folder: str):
+    return os.path.join(session_folder, "metadata.json")
+
+# Функция для записи метаданных
+def write_metadata(session_folder: str, version: str):
+    metadata_path = get_metadata_path(session_folder)
+    # Если файл метаданных существует, загружаем его
+    if os.path.exists(metadata_path):
+        with open(metadata_path, "r") as f:
+            metadata = json.load(f)
+    else:
+        metadata = {}
+    
+    # Добавляем или обновляем информацию о версии
+    metadata[version] = {"created_at": datetime.utcnow().isoformat()}
+    
+    # Записываем обновленные метаданные обратно в файл
+    with open(metadata_path, "w") as f:
+        json.dump(metadata, f)
+
+# Функция для чтения метаданных
+def read_metadata(session_folder: str):
+    metadata_path = get_metadata_path(session_folder)
+    if os.path.exists(metadata_path):
+        with open(metadata_path, "r") as f:
+            return json.load(f)
+    return {}
+
+@app.get("/folders/")
+async def get_folders(request: Request, response: Response):
+    # Извлекаем session_id из cookies
+    session_id = get_session_id(request)
+    
+    if not session_id:
+        response.headers["Set-Cookie"] = f"session_id={session_id}; Path=/; HttpOnly"
+    
+    session_folder = os.path.join(BASE_SAVE_FOLDER, session_id)
+    try:
+        folders = get_folders_in_directory(session_id)
+        metadata = read_metadata(session_folder)
+        
+        # Включаем информацию о времени создания версий
+        folders_info = [{"version": folder, "created_at": metadata.get(folder, {}).get("created_at")} for folder in folders]
+        return {"folders": folders_info}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.post("/upload_files/")
 async def upload_files(
     dataset_name: str, 
-    version: str, 
+    version: str,
+    response: Response,
     files: List[UploadFile] = File(...),
-    request: Request = None
+    request: Request = None,
 ):
     # Получаем или генерируем ID сессии
     session_id = get_session_id(request)
     
     # Формируем путь для сессии и версии
+    response.headers["Set-Cookie"] = f"session_id={session_id}; Path=/; HttpOnly"
     session_folder = os.path.join(BASE_SAVE_FOLDER, session_id)
     version_folder = os.path.join(session_folder, version)
+    dataset_folder = os.path.join(version_folder, dataset_name)
     
     # Создаем папки, если их нет
     os.makedirs(version_folder, exist_ok=True)
+    os.makedirs(dataset_folder, exist_ok=True)
+
+    # Записываем время создания версии в метаданные
+    write_metadata(session_folder, version)
 
     file_paths = []
     
     # Обрабатываем каждый файл
     for file in files:
-        # Определяем расширение файла
         extension = file.filename.split('.')[-1]
-        
         if extension in EXPECTED_EXTENSIONS:
-            # Формируем новое имя файла
             new_filename = f"{dataset_name}.{extension}"
-            file_location = os.path.join(version_folder, new_filename)
-            
-            # Сохраняем файл
+            file_location = os.path.join(dataset_folder, new_filename)
             with open(file_location, "wb") as buffer:
                 shutil.copyfileobj(file.file, buffer)
-            
-            # Добавляем путь к файлу в список
             file_paths.append(file_location)
         else:
-            # Если расширение файла не подходит, возвращаем ошибку
             raise HTTPException(status_code=400, detail=f"Invalid file extension for {file.filename}")
     
-    return data_process.convert_data(os.path.join(version_folder, f"{dataset_name}.{'shp'}"))
+    return {"uploaded_files": file_paths}
+
+@app.delete("/delete_version/")
+async def delete_version(request: Request, response: Response, version: str):
+    # Получаем session_id из cookies
+    session_id = get_session_id(request)
+    
+    if not session_id:
+        response.headers["Set-Cookie"] = f"session_id={session_id}; Path=/; HttpOnly"
+    
+    session_folder = os.path.join(BASE_SAVE_FOLDER, session_id)
+    version_folder = os.path.join(session_folder, version)
+    metadata_path = get_metadata_path(session_folder)
+
+    # Проверяем, существует ли папка версии
+    if not os.path.exists(version_folder):
+        raise HTTPException(status_code=404, detail="Version folder not found")
+
+    try:
+        # Удаляем папку версии
+        shutil.rmtree(version_folder)
+        
+        # Удаляем запись из метаданных
+        if os.path.exists(metadata_path):
+            with open(metadata_path, "r") as f:
+                metadata = json.load(f)
+            
+            if version in metadata:
+                del metadata[version]
+            
+            # Записываем обновленные метаданные
+            with open(metadata_path, "w") as f:
+                json.dump(metadata, f)
+        
+        return {"message": f"Version {version} deleted successfully"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
