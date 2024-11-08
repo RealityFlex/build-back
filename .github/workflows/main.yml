@@ -1,0 +1,37 @@
+name: Build and Push
+
+on:
+  push:
+    branches:
+      - main
+      
+jobs:
+  job1:
+    name: Build and push
+    runs-on: ubuntu-latest
+    env:
+      LOGIN: ${{ secrets.DOCKERHUB_LOGIN }}
+      NAME: ${{ secrets.DOCKER_NAME }}
+    steps:
+      - uses: actions/checkout@v2
+      - name: Build image
+        run: docker build -t $LOGIN/$NAME:latest .
+      - name: Docker login
+        run: echo ${{ secrets.DOCKERHUB_PASS }} | docker login -u ${{ secrets.DOCKERHUB_LOGIN }} --password-stdin
+      - name: Push image
+        run: docker push $LOGIN/$NAME:latest
+  job2:
+    name: Publish
+    needs: job1
+    runs-on: ubuntu-latest
+    steps:
+        - name: Run sshpass commands
+          uses: matheusvanzan/sshpass-action@v2
+          with:
+            host: ${{ secrets.VIRTUAL_IP }}
+            user: ${{ secrets.VIRTUAL_LOGIN }}
+            pass: ${{ secrets.VIRTUAL_PASS }}
+            run: |
+              cd best_serv
+              docker-compose pull
+              docker-compose up -d
