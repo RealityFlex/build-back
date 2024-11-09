@@ -8,6 +8,8 @@ from tqdm import tqdm
 import pandas as pd
 from pathlib import Path
 
+users_data = {}
+
 def find_shapefile(directory, keyword=None):
     """Ищет первый файл .shp в директории с опциональной фильтрацией по ключевому слову"""
     for file in Path(directory).glob("*.shp"):
@@ -17,26 +19,43 @@ def find_shapefile(directory, keyword=None):
 
 def find_routes_and_places(folder_path):
     """Загружает файлы маршрутов и местоположений"""
+    path = folder_path
     folder_path = Path(folder_path)
+    
 
-    # Ищем shapefiles в папке
-    files = {
-        "Street": find_shapefile(folder_path / "streets")
-    }
+    id = path.split("\\")[-2].split('/')[-1]
+    version = path.split("\\")[-1]
+    print(id, version)
 
-    house_path = find_shapefile(folder_path / "buildings")
-    stations = find_shapefile(folder_path / "stations")
+    if id in users_data.keys():
+        houses = users_data[id][version]['houses']
+        buses = users_data[id][version]['buses']
+        streets = users_data[id][version]['streets']
 
-    print(f"House path: {house_path}")
-    print(f"Stations path: {stations}")
+    else:
+        # Ищем shapefiles в папке
+        files = {
+            "Street": find_shapefile(folder_path / "streets")
+        }
 
-    houses = gpd.read_file(house_path).to_crs(epsg=4326)
-    buses = gpd.read_file(stations).to_crs(epsg=4326)
-    streets = gpd.GeoDataFrame(pd.concat([ 
-        gpd.read_file(path).to_crs(epsg=4326)[lambda data: data['Foot'] == 1]
-        for path in files.values()
-    ], ignore_index=True))
-    streets = streets[streets.geometry.type == 'LineString']
+        house_path = find_shapefile(folder_path / "buildings")
+        stations = find_shapefile(folder_path / "stations")
+
+        print(f"House path: {house_path}")
+        print(f"Stations path: {stations}")
+
+        houses = gpd.read_file(house_path).to_crs(epsg=4326)
+        buses = gpd.read_file(stations).to_crs(epsg=4326)
+        streets = gpd.GeoDataFrame(pd.concat([ 
+            gpd.read_file(path).to_crs(epsg=4326)[lambda data: data['Foot'] == 1]
+            for path in files.values()
+        ], ignore_index=True))
+        streets = streets[streets.geometry.type == 'LineString']
+
+        users_data[id] = {version: {}}
+        users_data[id][version]['houses'] = houses
+        users_data[id][version]['buses'] = buses
+        users_data[id][version]['streets'] = streets
 
     point = gpd.GeoDataFrame(geometry=[Point(37.495, 55.555)], crs="EPSG:4326")
     radius = 1000  # 1 км = 1000 метров
