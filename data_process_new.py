@@ -39,7 +39,7 @@ def find_routes_and_places(folder_path):
 
     if house_path and stations:
         # Загружаем данные
-        houses = gpd.read_file(house_path).to_crs(epsg=4326)
+        houses = gpd.read_file(house_path).to_crs(epsg=4326).sample(n=100)
         buses = gpd.read_file(stations).to_crs(epsg=4326)  # Остановки транспорта
 
         # Загружаем данные для улиц
@@ -143,4 +143,4 @@ def find_routes_and_places(folder_path):
         }
     }
 
-    return json.dumps(result, ensure_ascii=False, indent=4)
+    return result
