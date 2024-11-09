@@ -21,16 +21,9 @@ def find_routes_and_places(folder_path):
 
     # Ищем shapefiles в папке
     files = {
-        "Street": find_shapefile(folder_path / "streets"),
+        "Street": find_shapefile(folder_path / "streets")
     }
 
-    # for name, path in files.items():
-    #     if path:
-    #         print(f"Found {name}: {path}")
-    #     else:
-    #         print(f"{name} shapefile not found!")
-
-    # Ищем файлы для зданий и остановок
     house_path = find_shapefile(folder_path / "buildings")
     stations = find_shapefile(folder_path / "stations")
 
