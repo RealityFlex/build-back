@@ -8,8 +8,6 @@ import json
 from fastapi.middleware.cors import CORSMiddleware
 from datetime import datetime
 
-app = FastAPI()
-
 # Папка для хранения загруженных файлов
 BASE_SAVE_FOLDER = "./uploaded_files/"
 
