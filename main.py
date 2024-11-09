@@ -104,7 +104,7 @@ async def list_files(request: Request, response: Response, version = None):
     session_id = get_session_id(request)
     
     if not session_id:
-        response.headers["Set-Cookie"] = f"session_id={session_id}; Path=/; HttpOnly"
+        response.headers["Set-Cookie"] = f"session_id={session_id}; Path=/;"
     
     try:
         # Получаем список файлов для session_id
@@ -149,7 +149,7 @@ async def get_folders(request: Request, response: Response):
     # Извлекаем session_id из cookies
     session_id = get_session_id(request)
     if not session_id:
-        response.headers["Set-Cookie"] = f"session_id={session_id}; Path=/; HttpOnly"
+        response.headers["Set-Cookie"] = f"session_id={session_id}; Path=/;"
     session_folder = os.path.join(BASE_SAVE_FOLDER, session_id)
     try:
         folders = get_folders_in_directory(session_id)
@@ -176,7 +176,7 @@ async def get_folders(request: Request, response: Response):
         # Чтение метаданных и добавление времени создания
         metadata = read_metadata(session_folder)
         folders_info = [{"version": folder, "created_at": metadata.get(folder, {}).get("created_at")} for folder in folders]
-        response.headers["Set-Cookie"] = f"session_id={session_id}; Path=/; HttpOnly"
+        response.headers["Set-Cookie"] = f"session_id={session_id}; Path=/;"
         return {"folders": folders_info}
     
     except Exception as e:
@@ -195,7 +195,7 @@ async def upload_files(
     session_id = get_session_id(request)
     
     # Формируем путь для сессии и версии
-    response.headers["Set-Cookie"] = f"session_id={session_id}; Path=/; HttpOnly"
+    response.headers["Set-Cookie"] = f"session_id={session_id}; Path=/;"
     session_folder = os.path.join(BASE_SAVE_FOLDER, session_id)
     version_folder = os.path.join(session_folder, version)
     dataset_folder = os.path.join(version_folder, dataset_name)
@@ -234,10 +234,10 @@ async def upload_files(
     # Проверяем, существует ли директория
     session_folder = os.path.join(BASE_SAVE_FOLDER, session_id)
     if not os.path.exists(session_folder):
-        response.headers["Set-Cookie"] = f"session_id={session_id}; Path=/; HttpOnly"
+        response.headers["Set-Cookie"] = f"session_id={session_id}; Path=/;"
         raise HTTPException(status_code=404, detail="Session folder not found")
     # Формируем путь для сессии и версии
-    response.headers["Set-Cookie"] = f"session_id={session_id}; Path=/; HttpOnly"
+    response.headers["Set-Cookie"] = f"session_id={session_id}; Path=/;"
     session_folder = os.path.join(BASE_SAVE_FOLDER, session_id)
     version_folder = os.path.join(session_folder, version)
     return data_process_new.find_routes_and_places(version_folder)
@@ -249,7 +249,7 @@ async def delete_version(request: Request, response: Response, version: str):
     session_id = get_session_id(request)
     
     if not session_id:
-        response.headers["Set-Cookie"] = f"session_id={session_id}; Path=/; HttpOnly"
+        response.headers["Set-Cookie"] = f"session_id={session_id}; Path=/;"
     
     session_folder = os.path.join(BASE_SAVE_FOLDER, session_id)
     version_folder = os.path.join(session_folder, version)

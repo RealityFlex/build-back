@@ -24,11 +24,11 @@ def find_routes_and_places(folder_path):
         "Street": find_shapefile(folder_path / "streets"),
     }
 
-    for name, path in files.items():
-        if path:
-            print(f"Found {name}: {path}")
-        else:
-            print(f"{name} shapefile not found!")
+    # for name, path in files.items():
+    #     if path:
+    #         print(f"Found {name}: {path}")
+    #     else:
+    #         print(f"{name} shapefile not found!")
 
     # Ищем файлы для зданий и остановок
     house_path = find_shapefile(folder_path / "buildings")
@@ -37,16 +37,30 @@ def find_routes_and_places(folder_path):
     print(f"House path: {house_path}")
     print(f"Stations path: {stations}")
 
-    if house_path and stations:
-        # Загружаем данные
-        houses = gpd.read_file(house_path).to_crs(epsg=4326).sample(n=100)
-        buses = gpd.read_file(stations).to_crs(epsg=4326)  # Остановки транспорта
+    houses = gpd.read_file(house_path).to_crs(epsg=4326)
+    buses = gpd.read_file(stations).to_crs(epsg=4326)
+    streets = gpd.GeoDataFrame(pd.concat([ 
+        gpd.read_file(path).to_crs(epsg=4326)[lambda data: data['Foot'] == 1]
+        for path in files.values()
+    ], ignore_index=True))
+    streets = streets[streets.geometry.type == 'LineString']
 
-        # Загружаем данные для улиц
-        streets = gpd.GeoDataFrame(pd.concat([ 
-            gpd.read_file(path).to_crs(epsg=4326)[lambda data: data['Foot'] == 1] 
-            for path in files.values() 
-        ], ignore_index=True))
+    point = gpd.GeoDataFrame(geometry=[Point(37.495, 55.555)], crs="EPSG:4326")
+    radius = 1000  # 1 км = 1000 метров
+
+    houses = houses.to_crs(epsg=3857)
+    buses = buses.to_crs(epsg=3857)
+    streets = streets.to_crs(epsg=3857)
+    point = point.to_crs(epsg=3857)
+
+    # Выбираем объекты, находящиеся в пределах 1 км от заданной точки
+    houses = houses[houses.geometry.distance(point.geometry.iloc[0]) <= radius]
+    buses = buses[buses.geometry.distance(point.geometry.iloc[0]) <= radius]
+    streets = streets[streets.geometry.distance(point.geometry.iloc[0]) <= radius]
+
+    houses = houses.to_crs(epsg=4326)
+    buses = buses.to_crs(epsg=4326)
+    streets = streets.to_crs(epsg=4326)
 
     # Создаем граф с NetworkX
     def create_graph(streets):
