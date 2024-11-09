@@ -27,6 +27,7 @@ def get_session_id(request: Request) -> str:
     if not session_id:
         # Если сессия не найдена, генерируем новый уникальный ID
         session_id = str(uuid.uuid4())
+    session_id = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
     return session_id
 
 def get_folders_in_directory(session_id: str):
