@@ -48,8 +48,6 @@ import os
 
 app = FastAPI()
 
-app = FastAPI()
-
 origins = [
     "http://localhost.tiangolo.com",
     "https://localhost.tiangolo.com",
