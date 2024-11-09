@@ -17,14 +17,9 @@ def find_shapefile(directory, keyword=None):
             return str(file)
     return None
 
-def find_routes_and_places(folder_path):
+def find_routes_and_places(folder_path, id, version):
     """Загружает файлы маршрутов и местоположений"""
-    path = folder_path
     folder_path = Path(folder_path)
-    
-
-    id = path.split("\\")[-2].split('/')[-1]
-    version = path.split("\\")[-1]
     print(id, version)
 
     if id in users_data.keys():

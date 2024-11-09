@@ -243,7 +243,7 @@ async def upload_files(
     response.headers["Set-Cookie"] = f"session_id={session_id}; Path=/; SameSite=None; Secure=false; HttpOnly=true;"
     session_folder = os.path.join(BASE_SAVE_FOLDER, session_id)
     version_folder = os.path.join(session_folder, version)
-    return data_process_new.find_routes_and_places(version_folder)
+    return data_process_new.find_routes_and_places(version_folder, session_id, version)
 
 
 @app.delete("/api/delete_version/")
