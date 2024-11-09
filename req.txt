@@ -7,4 +7,8 @@ python-multipart
 websockets
 geopandas
 networkx
+pandas
+shapely
 scipy
+numpy
+tqdm

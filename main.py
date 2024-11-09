@@ -3,7 +3,7 @@ from typing import List
 import shutil
 import os
 import uuid
-import data_process
+import data_process_new
 import json
 from fastapi.middleware.cors import CORSMiddleware
 from datetime import datetime
@@ -105,7 +105,7 @@ def get_files_in_session_folder(session_id: str, version = None):
         
     return result
 
-@app.get("/files/")
+@app.get("/api/files/")
 async def list_files(request: Request, response: Response, version = None):
     # Извлекаем session_id из cookies
     session_id = get_session_id(request)
@@ -151,7 +151,7 @@ def read_metadata(session_folder: str):
 
 import shutil
 
-@app.get("/folders/")
+@app.get("/api/folders/")
 async def get_folders(request: Request, response: Response):
     # Извлекаем session_id из cookies
     session_id = get_session_id(request)
@@ -190,7 +190,7 @@ async def get_folders(request: Request, response: Response):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.post("/upload_files/")
+@app.post("/api/upload_files/")
 async def upload_files(
     dataset_name: str, 
     version: str,
@@ -230,7 +230,7 @@ async def upload_files(
     
     return {"uploaded_files": file_paths}
 
-@app.get("/get_routes/")
+@app.get("/api/get_routes/")
 async def upload_files(
     version: str,
     response: Response,
@@ -247,10 +247,10 @@ async def upload_files(
     response.headers["Set-Cookie"] = f"session_id={session_id}; Path=/; HttpOnly"
     session_folder = os.path.join(BASE_SAVE_FOLDER, session_id)
     version_folder = os.path.join(session_folder, version)
-    return data_process.process_shapefiles(version_folder)
+    return data_process_new.find_routes_and_places(version_folder)
 
 
-@app.delete("/delete_version/")
+@app.delete("/api/delete_version/")
 async def delete_version(request: Request, response: Response, version: str):
     # Получаем session_id из cookies
     session_id = get_session_id(request)

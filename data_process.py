@@ -5,14 +5,33 @@ import json
 from shapely.geometry import Point
 from scipy.spatial import cKDTree
 
+from pathlib import Path
+
+def find_shapefile(directory, keyword=None):
+    # Ищем первый файл с расширением .shp, опционально фильтруем по ключевому слову
+    for file in Path(directory).glob("*.shp"):
+        if keyword is None or keyword.lower() in file.stem.lower():
+            return str(file)
+    return None
+
 def process_shapefiles(folder_path):
+    folder_path = Path(folder_path)
+    
     files = {
-        "Street": f"{folder_path}/streets/Streets_исходные.shp"
+        "Street": find_shapefile(folder_path / "streets").items()[0]
     }
 
+    for name, path in files.items():
+        if path:
+            print(f"Found {name}: {path}")
+        else:
+            print(f"{name} shapefile not found!")
+
     # Загрузка данных
-    house_path = f"{folder_path}/buildings/Дома_исходные.shp"
-    metro_path = f"{folder_path}/metro/Выходы_метро.shp"
+    house_path = find_shapefile(folder_path / "buildings").items()[0],
+    metro_path = find_shapefile(folder_path / "metro").items()[0]
+
+    print(house_path)
 
     houses = gpd.read_file(house_path).to_crs(epsg=4326)
     metroes = gpd.read_file(metro_path).to_crs(epsg=4326)  # Станции метро
