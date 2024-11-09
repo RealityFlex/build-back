@@ -36,7 +36,7 @@ def get_folders_in_directory(session_id: str):
     
     # Проверяем, существует ли директория
     if not os.path.exists(session_folder):
-        raise HTTPException(status_code=404, detail="Session folder not found")
+        return []
     
     # Получаем список всех элементов в папке, фильтруем только папки
     folders = [f for f in os.listdir(session_folder) if os.path.isdir(os.path.join(session_folder, f))]
@@ -149,24 +149,46 @@ def read_metadata(session_folder: str):
             return json.load(f)
     return {}
 
+import shutil
+
 @app.get("/folders/")
 async def get_folders(request: Request, response: Response):
     # Извлекаем session_id из cookies
     session_id = get_session_id(request)
-    
     if not session_id:
         response.headers["Set-Cookie"] = f"session_id={session_id}; Path=/; HttpOnly"
-    
     session_folder = os.path.join(BASE_SAVE_FOLDER, session_id)
     try:
         folders = get_folders_in_directory(session_id)
+        # Проверка наличия папки "default"
+        if "default" not in folders:
+            session_folder = os.path.join(BASE_SAVE_FOLDER, session_id)
+            
+            # Создаем папки, если их нет
+            os.makedirs(session_folder, exist_ok=True)
+
+            # Записываем время создания версии в метаданные
+            write_metadata(session_folder, "default_data")
+            # Папка "default" отсутствует, копируем данные из default_data
+            default_data_folder = "default_data"
+            default_version_folder = os.path.join(session_folder, "default")
+            # Копируем все содержимое из default_data в папку "default"
+            if os.path.exists(default_data_folder):
+                shutil.copytree(default_data_folder, default_version_folder)
+            else:
+                raise HTTPException(status_code=404, detail="default_data folder not found")
+            # После копирования создаем метаданные для версии "default"
+            write_metadata(session_folder, "default")
+            folders = get_folders_in_directory(session_id)
+        # Чтение метаданных и добавление времени создания
         metadata = read_metadata(session_folder)
-        
-        # Включаем информацию о времени создания версий
         folders_info = [{"version": folder, "created_at": metadata.get(folder, {}).get("created_at")} for folder in folders]
+        response.headers["Set-Cookie"] = f"session_id={session_id}; Path=/; HttpOnly"
         return {"folders": folders_info}
+    
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
 
 @app.post("/upload_files/")
 async def upload_files(
@@ -207,6 +229,26 @@ async def upload_files(
             raise HTTPException(status_code=400, detail=f"Invalid file extension for {file.filename}")
     
     return {"uploaded_files": file_paths}
+
+@app.get("/get_routes/")
+async def upload_files(
+    version: str,
+    response: Response,
+    request: Request = None,
+):
+    # Получаем или генерируем ID сессии
+    session_id = get_session_id(request)
+    # Проверяем, существует ли директория
+    session_folder = os.path.join(BASE_SAVE_FOLDER, session_id)
+    if not os.path.exists(session_folder):
+        response.headers["Set-Cookie"] = f"session_id={session_id}; Path=/; HttpOnly"
+        raise HTTPException(status_code=404, detail="Session folder not found")
+    # Формируем путь для сессии и версии
+    response.headers["Set-Cookie"] = f"session_id={session_id}; Path=/; HttpOnly"
+    session_folder = os.path.join(BASE_SAVE_FOLDER, session_id)
+    version_folder = os.path.join(session_folder, version)
+    return data_process.process_shapefiles(version_folder)
+
 
 @app.delete("/delete_version/")
 async def delete_version(request: Request, response: Response, version: str):
