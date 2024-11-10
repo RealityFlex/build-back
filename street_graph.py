@@ -72,18 +72,19 @@ def update_weights(G, edge_loads, capacity=300):
         G[edge[0]][edge[1]]['weight'] = weight * (1 + congestion * 2)
 
 # --- Plot Heatmap for Edge Loads ---
-# def plot_heatmap(G, edge_loads):
-#     loads = np.array(list(edge_loads.values()))
-#     norm = plt.Normalize(vmin=0, vmax=loads.max())
-#     cmap = plt.cm.Reds
+def plot_heatmap(G, edge_loads):
+    loads = np.array(list(edge_loads.values()))
+    norm = plt.Normalize(vmin=0, vmax=loads.max())
+    cmap = plt.cm.Reds
 
-#     fig, ax = plt.subplots(figsize=(12, 8))
-#     for (u, v, data) in G.edges(data=True):
-#         load = edge_loads[(u, v)]
-#         color = cmap(norm(load))
-#         ax.plot([u[0], v[0]], [u[1], v[1]], color=color, linewidth=2)
+    fig, ax = plt.subplots(figsize=(12, 8))
+    for (u, v, data) in G.edges(data=True):
+        load = edge_loads[(u, v)]
+        color = cmap(norm(load))
+        ax.plot([u[0], v[0]], [u[1], v[1]], color=color, linewidth=2)
 
-#     sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
+    sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
+    return sm.set_array([])
 #     sm.set_array([])
 #     plt.colorbar(sm, ax=ax, label='Load Intensity')
 #     plt.title("Heatmap of Pedestrian Congestion")
