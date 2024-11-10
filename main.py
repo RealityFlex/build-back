@@ -221,7 +221,7 @@ async def upload_files(
     for file in files:
         extension = file.filename.split('.')[-1]
         if extension in EXPECTED_EXTENSIONS:
-            new_filename = f"{dataset_name}.{extension}"
+            new_filename = file.filename
             file_location = os.path.join(dataset_folder, new_filename)
             with open(file_location, "wb") as buffer:
                 shutil.copyfileobj(file.file, buffer)
