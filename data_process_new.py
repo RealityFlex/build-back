@@ -54,7 +54,7 @@ def find_routes_and_places(folder_path, id, version, lat=37.495, long=55.555):
         users_data[id][version]['streets'] = streets
 
     point = gpd.GeoDataFrame(geometry=[Point(lat, long)], crs="EPSG:4326").to_crs(epsg=3857)
-    radius = 1000
+    radius = 1500
 
     houses = houses.to_crs(epsg=3857)
     buses = buses.to_crs(epsg=3857)
@@ -77,33 +77,33 @@ def find_routes_and_places(folder_path, id, version, lat=37.495, long=55.555):
     add_places_to_graph(houses, G, tree, node_coords, 'house')
     add_places_to_graph(buses, G, tree, node_coords, 'bus_stop')
 
-    # def find_shortest_paths_to_bus_stops(houses, buses, G):
-    #     house_locations = []
-    #     bus_stops = {tuple(bus.geometry.coords[0]): bus for _, bus in buses.iterrows()}
-    #     routes = {}
+    def find_shortest_paths_to_bus_stops(houses, buses, G):
+        house_locations = []
+        bus_stops = {tuple(bus.geometry.coords[0]): bus for _, bus in buses.iterrows()}
+        routes = {}
         
-    #     # Проходим по всем домам
-    #     for house in tqdm(houses.iterrows(), desc="Finding shortest paths"):
-    #         house_point = house[1]  # house[1] это сам объект серии (строки), а не индекс
-    #         house_location = (house_point.geometry.centroid.x, house_point.geometry.centroid.y)  # Извлекаем координаты
+        # Проходим по всем домам
+        for house in tqdm(houses.iterrows(), desc="Finding shortest paths"):
+            house_point = house[1]  # house[1] это сам объект серии (строки), а не индекс
+            house_location = (house_point.geometry.centroid.x, house_point.geometry.centroid.y)  # Извлекаем координаты
             
-    #         house_locations.append(house_location)
+            house_locations.append(house_location)
             
-    #         # Находим ближайшую автобусную остановку
-    #         nearest_bus_stop = min(bus_stops.keys(), key=lambda bus: Point(house_location).distance(Point(bus_stops[bus].geometry)))
+            # Находим ближайшую автобусную остановку
+            nearest_bus_stop = min(bus_stops.keys(), key=lambda bus: Point(house_location).distance(Point(bus_stops[bus].geometry)))
 
-    #         # Проверяем наличие пути между домом и ближайшей остановкой
-    #         if nx.has_path(G, house_location, nearest_bus_stop):
-    #             # Находим кратчайший путь
-    #             shortest_path = nx.shortest_path(G, source=house_location, target=nearest_bus_stop, weight='weight')
-    #             routes[house_location] = shortest_path
-    #         else:
-    #             # Если пути нет, записываем None
-    #             routes[house_location] = None
+            # Проверяем наличие пути между домом и ближайшей остановкой
+            if nx.has_path(G, house_location, nearest_bus_stop):
+                # Находим кратчайший путь
+                shortest_path = nx.shortest_path(G, source=house_location, target=nearest_bus_stop, weight='weight')
+                routes[house_location] = shortest_path
+            else:
+                # Если пути нет, записываем None
+                routes[house_location] = None
         
-    #     return routes, house_locations
+        return routes, house_locations
 
-    # routes, house_locations = find_shortest_paths_to_bus_stops(houses, buses, G)
+    routes, house_locations = find_shortest_paths_to_bus_stops(houses, buses, G)
 
     route_distribution = assign_routes_to_population(G, houses, buses, tree, node_coords)
     edge_loads = calculate_population_loads(G, route_distribution)
@@ -112,13 +112,18 @@ def find_routes_and_places(folder_path, id, version, lat=37.495, long=55.555):
     update_weights(G, edge_loads)
     summary = summarize_traffic_data(G, edge_loads, route_distribution, buses)
     print(summary)
-    heat_map = plot_heatmap(G, edge_loads, buses)
+
     # Создаем словарь с результатами
     result = {
         "summary": summary,
-        "houses": [{"x": row.geometry.centroid.x, "y": row.geometry.centroid.y} for _, row in houses.iterrows()],
+        "houses": [{"x": house[0], "y": house[1]} for house in house_locations],
         "bus_stops": [{"x": bus.geometry.coords[0][0], "y": bus.geometry.coords[0][1]} for _, bus in buses.iterrows()],
-        "heat_map": heat_map
+        "routes": {
+            f"{house_location[0]},{house_location[1]}": [
+                {"x": point[0], "y": point[1]} for point in route
+            ] if route else None
+            for house_location, route in routes.items()
+        }
     }
 
     return result
