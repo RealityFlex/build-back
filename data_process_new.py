@@ -8,7 +8,7 @@ from tqdm import tqdm
 import pandas as pd
 from pathlib import Path
 from street_graph import (create_graph, add_places_to_graph, calculate_population, summarize_traffic_data,
-                          assign_routes_to_population, calculate_population_loads, update_weights, plot_heatmap, add_population_column_to_houses, cpu_shortest_path_usage, plot_street_usage, plot_heatmap_f)
+                          assign_routes_to_population, calculate_population_loads, update_weights, plot_heatmap, add_population_column_to_houses, cpu_shortest_path_usage, plot_street_usage)
 
 
 users_data = {}
@@ -112,7 +112,7 @@ def find_routes_and_places(folder_path, id, version, lat=55.555, long=37.495):
     update_weights(G, edge_loads)
     summary = summarize_traffic_data(G, edge_loads, route_distribution, buses)
     print(summary)
-    heat_map = plot_heatmap_f(G, edge_loads, buses)
+    heat_map = plot_heatmap(G, edge_loads, buses)
     # Создаем словарь с результатами
     result = {
         "summary": summary,
