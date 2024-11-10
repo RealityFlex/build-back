@@ -12,3 +12,4 @@ shapely
 scipy
 numpy
 tqdm
+matplotlib
