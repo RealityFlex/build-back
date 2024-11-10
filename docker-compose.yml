@@ -2,8 +2,21 @@ version: '3.8'
 
 services:
 
+  front:
+    image: shureck/buildings-front
+    restart: always
+    command: pnpm run dev --host 0.0.0.0
+    ports:
+      - 3000:8080
+    environment:
+      - VITE_APP_API_BASE_URL=/api
+      - VITE_APP_API_PROTOCOL=http
+      - VITE_APP_API_HOST=62.109.26.235
+      - VITE_APP_API_SERVICE_PORT=8180
+      - VITE_APP_MAPBOX_SECRET_ACCESS_TOKEN=<>
+      - VITE_APP_MAPBOX_PUBLIC_ACCESS_TOKEN=<>
   web:
-    build: .
+    image: shureck/buildings-back
     restart: always
     command: uvicorn main:app --host 0.0.0.0
     ports:
