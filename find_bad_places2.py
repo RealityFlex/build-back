@@ -54,7 +54,7 @@ def generate_raport(folder_path, id, version, lat=37.495, long=55.555):
         users_data[id][version]['streets'] = streets
 
     point = gpd.GeoDataFrame(geometry=[Point(lat, long)], crs="EPSG:4326").to_crs(epsg=3857)
-    radius = 1500
+    radius = 1000
 
     houses = houses.to_crs(epsg=3857)
     buses = buses.to_crs(epsg=3857)

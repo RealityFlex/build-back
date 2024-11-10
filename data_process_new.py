@@ -54,7 +54,7 @@ def find_routes_and_places(folder_path, id, version, lat=37.495, long=55.555):
         users_data[id][version]['streets'] = streets
 
     point = gpd.GeoDataFrame(geometry=[Point(lat, long)], crs="EPSG:4326").to_crs(epsg=3857)
-    radius = 1500
+    radius = 1000
 
     houses = houses.to_crs(epsg=3857)
     buses = buses.to_crs(epsg=3857)
@@ -112,12 +112,13 @@ def find_routes_and_places(folder_path, id, version, lat=37.495, long=55.555):
     update_weights(G, edge_loads)
     summary = summarize_traffic_data(G, edge_loads, route_distribution, buses)
     print(summary)
-
+    heat_map = plot_heatmap(G, edge_loads, buses)
     # Создаем словарь с результатами
     result = {
         "summary": summary,
-        "houses": [{"x": house[0], "y": house[1]} for house in house_locations],
+        "houses": [{"x": row.geometry.centroid.x, "y": row.geometry.centroid.y} for _, row in houses.iterrows()],
         "bus_stops": [{"x": bus.geometry.coords[0][0], "y": bus.geometry.coords[0][1]} for _, bus in buses.iterrows()],
+        "heat_map": heat_map,
         "routes": {
             f"{house_location[0]},{house_location[1]}": [
                 {"x": point[0], "y": point[1]} for point in route
