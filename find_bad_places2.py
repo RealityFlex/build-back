@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 from pathlib import Path
 from fpdf import FPDF
 from street_graph import (create_graph, add_places_to_graph, calculate_population, summarize_traffic_data,
-                          assign_routes_to_population, calculate_population_loads, update_weights, plot_heatmap, add_population_column_to_houses, cpu_shortest_path_usage, plot_street_usage)
+                          assign_routes_to_population, calculate_population_loads, update_weights, plot_heatmap, add_population_column_to_houses, cpu_shortest_path_usage, plot_street_usage, plot_heatmap_f)
 
 users_data = {}
 
@@ -131,7 +131,7 @@ def generate_raport(folder_path, id, version, lat=37.495, long=55.555):
         return output_path
 
     # Генерация тепловой карты и получение пути к изображению
-    heatmap_image_path, edge_colors = plot_heatmap(G, edge_loads, buses)
+    heatmap_image_path, edge_colors = plot_heatmap_f(G, edge_loads, buses)
     street_usage = cpu_shortest_path_usage(houses, buses, G)
     street_usage_path = plot_street_usage(streets, street_usage, houses, buses)
 

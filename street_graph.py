@@ -90,7 +90,7 @@ def plot_heatmap(G, edge_loads):
 #     plt.title("Heatmap of Pedestrian Congestion")
 #     plt.show()
 
-def plot_heatmap(G, edge_loads, buses):
+def plot_heatmap_f(G, edge_loads, buses):
     # Extract the load values
     loads = np.array(list(edge_loads.values()))
     norm = plt.Normalize(vmin=0, vmax=loads.max())
@@ -142,8 +142,8 @@ def calculate_total_people_in_house(house, mean=2, std_dev=1):
     """
     apartments = int(house['Apartments'])  # Количество квартир
     if apartments == 0:
-        apartments = 5
-    total_people = sum([calculate_people_in_apartment(mean, std_dev) for _ in range(apartments)])  # Суммируем количество людей
+        apartments = 10
+    total_people = sum([calculate_people_in_apartment(mean, std_dev) for _ in range(apartments)])+30  # Суммируем количество людей
     return total_people
 
 # --- Добавление столбца с количеством людей в домах ---
