@@ -20,7 +20,7 @@ def find_shapefile(directory, keyword=None):
             return str(file)
     return None
 
-def generate_raport(folder_path, id, version, lat=37.495, long=55.555):
+def generate_raport(folder_path, id, version, lat=55.555, long=37.495):
     """Загружает файлы маршрутов и местоположений"""
     folder_path = Path(folder_path)
     print(id, version)
@@ -53,7 +53,7 @@ def generate_raport(folder_path, id, version, lat=37.495, long=55.555):
         users_data[id][version]['buses'] = buses
         users_data[id][version]['streets'] = streets
 
-    point = gpd.GeoDataFrame(geometry=[Point(lat, long)], crs="EPSG:4326").to_crs(epsg=3857)
+    point = gpd.GeoDataFrame(geometry=[Point(long, lat)], crs="EPSG:4326").to_crs(epsg=3857)
     radius = 1000
 
     houses = houses.to_crs(epsg=3857)
