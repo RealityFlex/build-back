@@ -112,7 +112,7 @@ def find_routes_and_places(folder_path, id, version, lat=37.495, long=55.555):
     update_weights(G, edge_loads)
     summary = summarize_traffic_data(G, edge_loads, route_distribution, buses)
     print(summary)
-    heat_map = plot_heatmap(G, edge_loads, buses)
+    heat_map = plot_heatmap(G, edge_loads)
     # Создаем словарь с результатами
     result = {
         "summary": summary,
