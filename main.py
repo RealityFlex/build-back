@@ -1,4 +1,5 @@
 from fastapi import FastAPI, File, UploadFile, Request, HTTPException, Response
+from fastapi.responses import FileResponse
 from typing import List
 import shutil
 import os
@@ -6,6 +7,7 @@ import uuid
 import data_process_new
 import json
 from fastapi.middleware.cors import CORSMiddleware
+import find_bad_places2
 from datetime import datetime
 
 # Папка для хранения загруженных файлов
@@ -229,11 +231,32 @@ async def upload_files(
     
     return {"uploaded_files": file_paths}
 
+# @app.get("/api/get_routes/")
+# async def upload_files(
+#     version: str,
+#     response: Response,
+#     request: Request = None,
+# ):
+#     # Получаем или генерируем ID сессии
+#     session_id = get_session_id(request)
+#     # Проверяем, существует ли директория
+#     session_folder = os.path.join(BASE_SAVE_FOLDER, session_id)
+#     if not os.path.exists(session_folder):
+#         response.headers["Set-Cookie"] = f"session_id={session_id}; Path=/; HttpOnly=false;"
+#         raise HTTPException(status_code=404, detail="Session folder not found")
+#     # Формируем путь для сессии и версии
+#     response.headers["Set-Cookie"] = f"session_id={session_id}; Path=/; HttpOnly=false;"
+#     session_folder = os.path.join(BASE_SAVE_FOLDER, session_id)
+#     version_folder = os.path.join(session_folder, version)
+#     return data_process_new.find_routes_and_places(version_folder, session_id, version)
+
 @app.get("/api/get_routes/")
 async def upload_files(
     version: str,
     response: Response,
     request: Request = None,
+    lat: float = None,
+    long: float = None,
 ):
     # Получаем или генерируем ID сессии
     session_id = get_session_id(request)
@@ -246,8 +269,40 @@ async def upload_files(
     response.headers["Set-Cookie"] = f"session_id={session_id}; Path=/; HttpOnly=false;"
     session_folder = os.path.join(BASE_SAVE_FOLDER, session_id)
     version_folder = os.path.join(session_folder, version)
+    if lat != None and long != None:
+        return data_process_new.find_routes_and_places(version_folder, session_id, version, lat, long)
     return data_process_new.find_routes_and_places(version_folder, session_id, version)
 
+@app.get("/api/get_raport/")
+async def upload_files(
+    version: str,
+    response: Response,
+    request: Request = None,
+    lat: float = None,
+    long: float = None,
+):
+    # Получаем или генерируем ID сессии
+    session_id = get_session_id(request)
+    # Проверяем, существует ли директория
+    session_folder = os.path.join(BASE_SAVE_FOLDER, session_id)
+    if not os.path.exists(session_folder):
+        response.headers["Set-Cookie"] = f"session_id={session_id}; Path=/; HttpOnly=false;"
+        raise HTTPException(status_code=404, detail="Session folder not found")
+    # Формируем путь для сессии и версии
+    response.headers["Set-Cookie"] = f"session_id={session_id}; Path=/; HttpOnly=false;"
+    session_folder = os.path.join(BASE_SAVE_FOLDER, session_id)
+    version_folder = os.path.join(session_folder, version)
+    report_path = None
+    if lat is not None and long is not None:
+        report_path = find_bad_places2.generate_raport(version_folder, session_id, version, lat, long)
+    else:
+        report_path = find_bad_places2.generate_raport(version_folder, session_id, version)
+    
+    # Проверяем, существует ли PDF файл и возвращаем его
+    if os.path.exists(report_path):
+        return FileResponse(report_path, media_type='application/pdf', filename="report.pdf")
+    
+    raise HTTPException(status_code=404, detail="Report not found")
 
 @app.delete("/api/delete_version/")
 async def delete_version(request: Request, response: Response, version: str):

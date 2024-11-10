@@ -7,6 +7,9 @@ import numpy as np
 from tqdm import tqdm
 import pandas as pd
 from pathlib import Path
+from street_graph import (create_graph, add_places_to_graph, calculate_population, summarize_traffic_data,
+                          assign_routes_to_population, calculate_population_loads, update_weights, plot_heatmap, add_population_column_to_houses, cpu_shortest_path_usage, plot_street_usage)
+
 
 users_data = {}
 
@@ -17,7 +20,7 @@ def find_shapefile(directory, keyword=None):
             return str(file)
     return None
 
-def find_routes_and_places(folder_path, id, version):
+def find_routes_and_places(folder_path, id, version, lat=37.495, long=55.555):
     """Загружает файлы маршрутов и местоположений"""
     folder_path = Path(folder_path)
     print(id, version)
@@ -40,27 +43,23 @@ def find_routes_and_places(folder_path, id, version):
         print(f"Stations path: {stations}")
 
         houses = gpd.read_file(house_path).to_crs(epsg=4326)
+        houses["Apartments"] = houses["Apartments"].fillna(0) 
         buses = gpd.read_file(stations).to_crs(epsg=4326)
-        streets = gpd.GeoDataFrame(pd.concat([ 
-            gpd.read_file(path).to_crs(epsg=4326)[lambda data: data['Foot'] == 1]
-            for path in files.values()
-        ], ignore_index=True))
-        streets = streets[streets.geometry.type == 'LineString']
+        streets = gpd.GeoDataFrame(pd.concat([gpd.read_file(path).to_crs(epsg=4326).query("Foot == 1")
+                                        for path in files.values()], ignore_index=True)).loc[lambda df: df.geometry.type == 'LineString']
 
         users_data[id] = {version: {}}
         users_data[id][version]['houses'] = houses
         users_data[id][version]['buses'] = buses
         users_data[id][version]['streets'] = streets
 
-    point = gpd.GeoDataFrame(geometry=[Point(37.495, 55.555)], crs="EPSG:4326")
-    radius = 1000  # 1 км = 1000 метров
+    point = gpd.GeoDataFrame(geometry=[Point(lat, long)], crs="EPSG:4326").to_crs(epsg=3857)
+    radius = 1500
 
     houses = houses.to_crs(epsg=3857)
     buses = buses.to_crs(epsg=3857)
     streets = streets.to_crs(epsg=3857)
-    point = point.to_crs(epsg=3857)
 
-    # Выбираем объекты, находящиеся в пределах 1 км от заданной точки
     houses = houses[houses.geometry.distance(point.geometry.iloc[0]) <= radius]
     buses = buses[buses.geometry.distance(point.geometry.iloc[0]) <= radius]
     streets = streets[streets.geometry.distance(point.geometry.iloc[0]) <= radius]
@@ -69,91 +68,54 @@ def find_routes_and_places(folder_path, id, version):
     buses = buses.to_crs(epsg=4326)
     streets = streets.to_crs(epsg=4326)
 
-    # Создаем граф с NetworkX
-    def create_graph(streets):
-        G = nx.DiGraph()
-        nodes = set()
-        for _, row in streets.iterrows():
-            coords = list(row.geometry.coords)
-            for start, end in zip(coords[:-1], coords[1:]):
-                distance = Point(start).distance(Point(end))
-                G.add_edge(start, end, weight=distance)
-                G.add_edge(end, start, weight=distance)
-                nodes.add(start)
-                nodes.add(end)
-        return G, list(nodes)
+    houses = add_population_column_to_houses(houses)
 
     G, nodes = create_graph(streets)
-
-    # cKDTree и поиск ближайших точек
     node_coords = np.array(nodes)
     tree = cKDTree(node_coords)
-
-    def find_nearest_node(point, tree, node_coords):
-        dist, idx = tree.query((point.x, point.y))
-        return tuple(node_coords[idx]), dist
-
-    # Добавление домов и остановок в граф
-    def add_places_to_graph(places, G, tree, node_coords, place_type):
-        for _, place in tqdm(places.iterrows(), desc=f"Adding {place_type}", total=len(places)):
-            point = place.geometry.centroid if place_type == "house" else place.geometry
-            nearest_node, dist = find_nearest_node(point, tree, node_coords)
-            new_node = (point.x, point.y)
-            G.add_edge(nearest_node, new_node, weight=dist)
-            G.add_edge(new_node, nearest_node, weight=dist)
-            G.nodes[new_node]['type'] = place_type
 
     add_places_to_graph(houses, G, tree, node_coords, 'house')
     add_places_to_graph(buses, G, tree, node_coords, 'bus_stop')
 
-    # Поиск маршрута от дома до ближайшей остановки
     def find_shortest_paths_to_bus_stops(houses, buses, G):
         house_locations = []
         bus_stops = {tuple(bus.geometry.coords[0]): bus for _, bus in buses.iterrows()}
         routes = {}
         
-        for house in tqdm(houses, desc="Finding shortest paths"):
-            house_point = house
-            house_location = (house_point[0], house_point[1])
+        # Проходим по всем домам
+        for house in tqdm(houses.iterrows(), desc="Finding shortest paths"):
+            house_point = house[1]  # house[1] это сам объект серии (строки), а не индекс
+            house_location = (house_point.geometry.centroid.x, house_point.geometry.centroid.y)  # Извлекаем координаты
+            
             house_locations.append(house_location)
             
-            # Находим ближайшую остановку
-            nearest_bus_stop = min(bus_stops.keys(), key=lambda bus: Point(house_point).distance(Point(bus_stops[bus].geometry)))
-            
-            # Проверим, существует ли путь между домом и ближайшей остановкой
+            # Находим ближайшую автобусную остановку
+            nearest_bus_stop = min(bus_stops.keys(), key=lambda bus: Point(house_location).distance(Point(bus_stops[bus].geometry)))
+
+            # Проверяем наличие пути между домом и ближайшей остановкой
             if nx.has_path(G, house_location, nearest_bus_stop):
                 # Находим кратчайший путь
                 shortest_path = nx.shortest_path(G, source=house_location, target=nearest_bus_stop, weight='weight')
                 routes[house_location] = shortest_path
             else:
-                # Если пути нет, можно добавить сообщение о невозможности найти путь
+                # Если пути нет, записываем None
                 routes[house_location] = None
         
         return routes, house_locations
 
-    def find_buildings_within_1km(houses, buses, G):
-        bus_stops = {tuple(bus.geometry.coords[0]): bus for _, bus in buses.iterrows()}
-        buildings_near_stops = []
+    routes, house_locations = find_shortest_paths_to_bus_stops(houses, buses, G)
 
-        for _, house in tqdm(houses.iterrows(), desc="Finding buildings within 1km"):
-            house_point = house.geometry.centroid
-            house_location = (house_point.x, house_point.y)
-            
-            # Находим ближайшую остановку
-            nearest_bus_stop = min(bus_stops.keys(), key=lambda bus: Point(house_point).distance(Point(bus_stops[bus].geometry)))
-            
-            # Проверяем, находится ли здание в пределах 1 км от остановки
-            if Point(house_point).distance(Point(bus_stops[nearest_bus_stop].geometry)) <= 1.0:
-                buildings_near_stops.append(house_location)
-        
-        return buildings_near_stops
+    route_distribution = assign_routes_to_population(G, houses, buses, tree, node_coords)
+    edge_loads = calculate_population_loads(G, route_distribution)
 
-
-    buildings_near_stops = find_buildings_within_1km(houses, buses, G)
-    routes, house_locations = find_shortest_paths_to_bus_stops(buildings_near_stops, buses, G)
+    # --- Update weights based on loads and visualize heatmap ---
+    update_weights(G, edge_loads)
+    summary = summarize_traffic_data(G, edge_loads, route_distribution, buses)
+    print(summary)
 
     # Создаем словарь с результатами
     result = {
+        "summary": summary,
         "houses": [{"x": house[0], "y": house[1]} for house in house_locations],
         "bus_stops": [{"x": bus.geometry.coords[0][0], "y": bus.geometry.coords[0][1]} for _, bus in buses.iterrows()],
         "routes": {
